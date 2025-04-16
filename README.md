@@ -30,23 +30,46 @@ A Model Context Protocol (MCP) server implementation for Selenium WebDriver, ena
 - Chrome
 - Firefox
 
-## Use with Goose
+## Selenium Grid Support
 
-### Option 1: One-click install
-Copy and paste the link below into a browser address bar to add this extension to goose desktop:
+This MCP server can connect to a Selenium Grid instance for distributed browser automation. To use with Selenium Grid:
 
+1. Provide the `gridUrl` parameter in the browser options to connect to your Selenium Grid hub
+2. Optionally specify `platform` and `browserVersion` to request specific capabilities
+3. The Selenium Grid handles browser session management, allowing for better scalability and parallel test execution
+
+## LambdaTest Support
+
+This MCP server also supports LambdaTest for cross-browser testing in the cloud:
+
+1. Provide your LambdaTest credentials using `ltUsername` and `ltAccessKey` parameters
+2. Optionally specify additional LambdaTest capabilities:
+   - `platform` and `browserVersion` to select specific environments
+   - `ltBuild` and `ltTestName` for better test organization
+   - `ltNetwork`, `ltConsole`, and `ltVideo` for enhanced logging and recording
+   - `ltTunnel` for testing internal or localhost websites
+
+## Use with Claude
+
+### Add to Claude Desktop
+
+Add the Selenium MCP server to your Claude Desktop configuration:
+
+1. Open your Claude Desktop configuration file
+2. Add the following configuration:
+
+```json
+{
+  "mcpServers": {
+    "selenium": {
+      "command": "npx",
+      "args": ["-y", "@angiejones/mcp-selenium"]
+    }
+  }
+}
 ```
-goose://extension?cmd=npx&arg=-y&arg=%40angiejones%2Fmcp-selenium&id=selenium-mcp&name=Selenium%20MCP&description=automates%20browser%20interactions
-```
 
-
-### Option 2: Add manually to desktop or CLI
-
-* Name: `Selenium MCP`
-* Description: `automates browser interactions`
-* Command: `npx -y @angiejones/mcp-selenium`
-
-## Use with other MCP clients (e.g. Claude Desktop, etc)
+### Use with other MCP clients
 ```json
 {
   "mcpServers": {
@@ -122,12 +145,42 @@ Launches a browser session.
 - `options`: Browser configuration options
   - Type: object
   - Properties:
-    - `headless`: Run browser in headless mode
-      - Type: boolean
-    - `arguments`: Additional browser arguments
-      - Type: array of strings
+    - Local WebDriver options:
+      - `headless`: Run browser in headless mode
+        - Type: boolean
+      - `arguments`: Additional browser arguments
+        - Type: array of strings
+    
+    - Standard Selenium Grid options:
+      - `gridUrl`: Selenium Grid hub URL
+        - Type: string
+        - Example: "http://selenium-hub:4444/wd/hub"
+      - `platform`: Desired platform capability
+        - Type: string
+        - Example: "WINDOWS", "LINUX", "MAC"
+      - `browserVersion`: Specific browser version to request from Grid
+        - Type: string
+        - Example: "114.0"
+    
+    - LambdaTest specific options:
+      - `ltUsername`: LambdaTest username
+        - Type: string
+      - `ltAccessKey`: LambdaTest access key
+        - Type: string
+      - `ltBuild`: Build name for test organization
+        - Type: string
+      - `ltTestName`: Test name for reporting
+        - Type: string
+      - `ltNetwork`: Enable network logs
+        - Type: boolean
+      - `ltConsole`: Enable console logs
+        - Type: boolean
+      - `ltVideo`: Enable video recording
+        - Type: boolean
+      - `ltTunnel`: Enable LambdaTest tunnel for testing internal websites
+        - Type: boolean
 
-**Example:**
+**Example (Local):**
 ```json
 {
   "tool": "start_browser",
@@ -136,6 +189,41 @@ Launches a browser session.
     "options": {
       "headless": true,
       "arguments": ["--no-sandbox"]
+    }
+  }
+}
+```
+
+**Example (Selenium Grid):**
+```json
+{
+  "tool": "start_browser",
+  "parameters": {
+    "browser": "chrome",
+    "options": {
+      "gridUrl": "http://selenium-hub:4444/wd/hub",
+      "platform": "LINUX",
+      "browserVersion": "114.0"
+    }
+  }
+}
+```
+
+**Example (LambdaTest):**
+```json
+{
+  "tool": "start_browser",
+  "parameters": {
+    "browser": "chrome",
+    "options": {
+      "ltUsername": "your_username",
+      "ltAccessKey": "your_access_key",
+      "platform": "Windows 10",
+      "browserVersion": "latest",
+      "ltBuild": "Test Build 1",
+      "ltTestName": "Homepage Test",
+      "ltVideo": true,
+      "ltConsole": true
     }
   }
 }

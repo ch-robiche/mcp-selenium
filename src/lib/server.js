@@ -44,8 +44,24 @@ const getLocator = (by, value) => {
 
 // Common schemas
 const browserOptionsSchema = z.object({
+    // Local WebDriver options
     headless: z.boolean().optional().describe("Run browser in headless mode"),
-    arguments: z.array(z.string()).optional().describe("Additional browser arguments")
+    arguments: z.array(z.string()).optional().describe("Additional browser arguments"),
+    
+    // Standard Selenium Grid options
+    gridUrl: z.string().optional().describe("Selenium Grid hub URL (e.g., 'http://selenium-hub:4444/wd/hub')"),
+    platform: z.string().optional().describe("Desired platform capability (e.g., 'WINDOWS', 'LINUX', 'MAC')"),
+    browserVersion: z.string().optional().describe("Specific browser version to request from Grid"),
+    
+    // LambdaTest specific options
+    ltUsername: z.string().optional().describe("LambdaTest username"),
+    ltAccessKey: z.string().optional().describe("LambdaTest access key"),
+    ltBuild: z.string().optional().describe("Build name for test organization in LambdaTest"),
+    ltTestName: z.string().optional().describe("Test name for reporting in LambdaTest"),
+    ltNetwork: z.boolean().optional().describe("Enable network logs in LambdaTest"),
+    ltConsole: z.boolean().optional().describe("Enable console logs in LambdaTest"),
+    ltVideo: z.boolean().optional().describe("Enable video recording in LambdaTest"),
+    ltTunnel: z.boolean().optional().describe("Enable LambdaTest tunnel for testing internal websites")
 }).optional();
 
 const locatorSchema = {
@@ -67,33 +83,84 @@ server.tool(
             let builder = new Builder();
             let driver;
 
-            if (browser === 'chrome') {
-                const chromeOptions = new ChromeOptions();
+            // Set up browser-specific options
+            const browserName = browser === 'chrome' ? 'chrome' : 'firefox';
+            let browserOptions;
+            
+            if (browserName === 'chrome') {
+                browserOptions = new ChromeOptions();
                 if (options.headless) {
-                    chromeOptions.addArguments('--headless=new');
+                    browserOptions.addArguments('--headless=new');
                 }
                 if (options.arguments) {
-                    options.arguments.forEach(arg => chromeOptions.addArguments(arg));
+                    options.arguments.forEach(arg => browserOptions.addArguments(arg));
                 }
                 
-                driver = await builder
-                    .forBrowser('chrome')
-                    .setChromeOptions(chromeOptions)
-                    .build();
+                // Set basic Chrome options
+                builder = builder.forBrowser('chrome').setChromeOptions(browserOptions);
             } else {
-                const firefoxOptions = new FirefoxOptions();
+                browserOptions = new FirefoxOptions();
                 if (options.headless) {
-                    firefoxOptions.addArguments('--headless');
+                    browserOptions.addArguments('--headless');
                 }
                 if (options.arguments) {
-                    options.arguments.forEach(arg => firefoxOptions.addArguments(arg));
+                    options.arguments.forEach(arg => browserOptions.addArguments(arg));
                 }
                 
-                driver = await builder
-                    .forBrowser('firefox')
-                    .setFirefoxOptions(firefoxOptions)
-                    .build();
+                // Set basic Firefox options
+                builder = builder.forBrowser('firefox').setFirefoxOptions(browserOptions);
             }
+            
+            // LambdaTest configuration takes precedence
+            if (options.ltUsername && options.ltAccessKey) {
+                // Use LambdaTest hub
+                builder = builder.usingServer('https://hub.lambdatest.com/wd/hub');
+                
+                // Set up LambdaTest capabilities
+                const capabilities = {
+                    browserName: browserName,
+                    'LT:Options': {
+                        username: options.ltUsername,
+                        accessKey: options.ltAccessKey,
+                        platformName: options.platform || 'Windows 10',
+                        browserVersion: options.browserVersion || 'latest'
+                    }
+                };
+                
+                // Add optional LambdaTest capabilities
+                if (options.ltBuild) capabilities['LT:Options'].build = options.ltBuild;
+                if (options.ltTestName) capabilities['LT:Options'].name = options.ltTestName;
+                if (options.ltNetwork) capabilities['LT:Options'].network = true;
+                if (options.ltConsole) capabilities['LT:Options'].console = true;
+                if (options.ltVideo) capabilities['LT:Options'].video = true;
+                if (options.ltTunnel) capabilities['LT:Options'].tunnel = true;
+                
+                builder = builder.withCapabilities(capabilities);
+            } 
+            // Standard Selenium Grid configuration
+            else if (options.gridUrl) {
+                builder = builder.usingServer(options.gridUrl);
+                
+                // Add capabilities if provided
+                if (options.platform || options.browserVersion) {
+                    const capabilities = {
+                        browserName: browserName
+                    };
+                    
+                    if (options.browserVersion) {
+                        capabilities.browserVersion = options.browserVersion;
+                    }
+                    
+                    if (options.platform) {
+                        capabilities.platformName = options.platform;
+                    }
+                    
+                    builder = builder.withCapabilities(capabilities);
+                }
+            }
+            
+            // Build the driver
+            driver = await builder.build();
 
             const sessionId = `${browser}_${Date.now()}`;
             state.drivers.set(sessionId, driver);
